@@ -1,0 +1,1 @@
+    # Buat trackbar untuk pergeseran horizontal
