@@ -74,24 +74,47 @@ def draw_rectangle(frame, start_x, start_y, end_x, end_y, width, height):
 
 
 def process_frame(frame, start_x, start_y, end_x, end_y, width, height):
-    frame = draw_rectangle(frame, start_x, start_y, end_x, end_y, width, height)
-    color_detected, coordinates = detect_color_target(frame)
+    # frame = draw_rectangle(frame, start_x, start_y, end_x, end_y, width, height)
+    aksi = ''
+    if stop_detect != 1:
+        color_detected, coordinates = detect_color_target(frame)
     if color_detected:
         for coord in coordinates:
             print("Koordinat: {}".format(coord))
             if coord[1] < height-box_size:
-                print("Objek berada di atas")
+                aksi = "MAJU"
+                # print("Objek berada di atas")
                 # send maju
             if coord[0] < width-box_size and coord[1] > height-box_size:
-                print("Objek berada di sisi kiri kotak")
+                aksi = "ROTASI_KIRI"
+                # print("Objek berada di sisi kiri kotak")
                 # send belok kiri
             if coord[0] > start_x and coord[1] > height-box_size:
-                print("Objek berada di dalam kotak")
+                aksi = "STOP"
+                # print("Objek berada di dalam kotak")
                 # send stop
-    return frame
+    else:
+        aksi = "ROTASI_KIRI"
+    return frame, aksi
+
+def send_to_arduino(aksi):
+    # Di sini Anda bisa menambahkan kode untuk mengirimkan aksi ke Arduino
+    if aksi == 'MAJU':
+        var = 'M'  # Misalnya, 'M' adalah perintah untuk maju
+        ser.write(var.encode('utf-8'))
+    elif aksi == 'ROTASI_KIRI':
+        var = 'l'  # Misalnya, 'N' adalah perintah untuk mundur
+        ser.write(var.encode('utf-8'))
+    elif aksi == 'STOP':
+        var = 's'  # Misalnya, 'N' adalah perintah untuk mundur
+        ser.write(var.encode('utf-8'))
+    # Tambahkan elif untuk aksi lainnya jika diperlukan
+    else:
+        print("Aksi tidak dikenali:", aksi)
 
 
 def main_loop(cap, width, height):
+    aksi_sebelum = ''
     frame = None
     while True:
         frame = capture_frame(cap)
@@ -100,13 +123,22 @@ def main_loop(cap, width, height):
         start_y = height - box_size
         end_x = width
         end_y = height
-        frame = process_frame(frame, start_x, start_y, end_x, end_y, width, height)
-        cv2.imshow('Camera', frame)
+        frame, aksi_sesudah = process_frame(frame, start_x, start_y, end_x, end_y, width, height)
+
+        if aksi_sebelum != aksi_sesudah:
+            if(aksi_sesudah != 'STOP'):
+                send_to_arduino(aksi_sesudah)
+                stop_detect = 0
+            else:
+                stop_detect = 1
+            # print('send')
+        aksi_sebelum = aksi_sesudah
+
+        # cv2.imshow('Camera', frame)
         key = cv2.waitKey(1) & 0xFF
 
         if key == ord('q'):
             break
-
 
 # Fungsi utama
 def main():
@@ -129,6 +161,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("-v")
     args = vars(ap.parse_args())
+    ser = serial.Serial('/dev/ttyACM0', 115200)
 
     # colorLowerRed = np.array([0, 100, 100])
     # colorUpperRed = np.array([20, 255, 255])
