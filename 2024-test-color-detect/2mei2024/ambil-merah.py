@@ -4,7 +4,6 @@ from collections import deque
 import imutils
 import argparse
 import time
-from sklearn.mixture import GaussianMixture
 
 # maju cepat = F
 # maju sedang = n
@@ -101,40 +100,6 @@ def draw_rectangle(frame, start_x, start_y, end_x, end_y, width, height):
     cv2.line(frame, (0, start_y), (width, start_y), (255, 255, 255), 2)
     return frame
 
-# def process_frame(frame, start_x, start_y, end_x, end_y, width, height):
-#     frame = draw_rectangle(frame, start_x, start_y, end_x, end_y, width, height)
-#     aksi = ''
-#     if stop_detect!= 1:
-#         color_detected, coordinates, color_type = detect_color_target(frame)
-#         if color_detected:
-#             max_x = max(coord[0] for coord in coordinates)
-#             max_y = max(coord[1] for coord in coordinates)
-            
-#             for coord, color in zip(coordinates, color_type):
-#                 print("Koordinat: {}".format(coord))
-#                 if coord[1] < height - box_size:
-#                     aksi = "MAJU"
-#                     print("Objek berada di atas")
-#                     # send maju
-#                 if coord[0] < width - box_size and coord[1] > height - box_size:
-#                     aksi = "ROTASI_KIRI"
-#                     print("Objek berada di sisi kiri kotak")
-#                     # send belok kiri
-#                 if coord[0] > start_x and coord[1] > height - box_size:
-#                     aksi = "STOP"
-#                     print("Objek berada di dalam kotak")
-#                     if color == "Merah":
-#                         print("MERAH: AMBIL")
-#                         break
-#                     elif color == "Biru":
-#                         print("BIRU: BUANG")
-#                         break
-#                     # send stop
-#                 else:
-#                     print("Cari Objek")
-#                     aksi = "ROTASI_KIRI"    
-#     return frame, aksi
-
 def process_frame(frame, start_x, start_y, end_x, end_y, width, height, stop_detect):
     frame = draw_rectangle(frame, start_x, start_y, end_x, end_y, width, height)
     aksi = ''
@@ -171,20 +136,18 @@ def process_frame(frame, start_x, start_y, end_x, end_y, width, height, stop_det
     return frame, aksi
 
 def send_to_arduino(aksi):
-    # Di sini Anda bisa menambahkan kode untuk mengirimkan aksi ke Arduino
-    if aksi == 'MAJU':
-        var = MAJU_SEDANG  # Misalnya, 'M' adalah perintah untuk maju
-        ser.write(var.encode('utf-8'))
-    elif aksi == 'ROTASI_KIRI':
-        var = ROTASI_KIRI_CEPAT  # Misalnya, 'N' adalah perintah untuk mundur
-        ser.write(var.encode('utf-8'))
-    elif aksi == 'CARI_OBJEK':
-        var = ROTASI_KIRI_LAMBAT  # Misalnya, 'N' adalah perintah untuk mundur
-        ser.write(var.encode('utf-8'))
-    elif aksi == 'STOP':
-        var = STOP  # Misalnya, 'N' adalah perintah untuk mundur
-        ser.write(var.encode('utf-8'))
-    # Tambahkan elif untuk aksi lainnya jika diperlukan
+    commands = {
+        # 'AKSI': KIRIM
+        'MAJU': MAJU_SEDANG,
+        'ROTASI_KIRI': ROTASI_KIRI_CEPAT,
+        'CARI_OBJEK': ROTASI_KIRI_LAMBAT,
+        'STOP': STOP,
+        'PENGGIRING_START': PENGGIRING_START,
+        'PENGGIRING_STOP': PENGGIRING_STOP
+    }
+
+    if aksi in commands:
+        ser.write(commands[aksi].encode('utf-8'))
     else:
         print("Aksi tidak dikenali:", aksi)
 
@@ -216,8 +179,6 @@ def main_loop(cap, width, height):
 
         if key == ord('q'):
             break
-
-
 
 # Fungsi utama
 def main():
