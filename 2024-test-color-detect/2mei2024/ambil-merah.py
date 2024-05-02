@@ -44,6 +44,12 @@ STOP = 'S'
 PENGGIRING_START = 'p'
 PENGGIRING_STOP = 'P'
 
+global box_size, stop_detect, width, height
+width = 0
+height = 0
+stop_detect = 0
+box_size = 100
+
 def detect_color_target(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -95,13 +101,13 @@ def capture_frame(cap):
     frame = imutils.resize(frame, width=600)
     return frame
 
-def draw_rectangle(frame, start_x, start_y, end_x, end_y, width, height):
+def draw_rectangle(frame, start_x, start_y, end_x, end_y):
     cv2.rectangle(frame, (start_x, start_y), (end_x, end_y), (0, 255, 0), 2)
     cv2.line(frame, (0, start_y), (width, start_y), (255, 255, 255), 2)
     return frame
 
-def process_frame(frame, start_x, start_y, end_x, end_y, width, height, stop_detect):
-    frame = draw_rectangle(frame, start_x, start_y, end_x, end_y, width, height)
+def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
+    frame = draw_rectangle(frame, start_x, start_y, end_x, end_y)
     aksi = ''
     if stop_detect == 0:
         color_detected, coordinates, color_type = detect_color_target(frame)
@@ -151,7 +157,7 @@ def send_to_arduino(aksi):
     else:
         print("Aksi tidak dikenali:", aksi)
 
-def main_loop(cap, width, height):
+def main_loop(cap):
     aksi_sebelum = ''
     frame = None
     stop_detect = 0
@@ -163,7 +169,7 @@ def main_loop(cap, width, height):
         end_x = width
         end_y = height
         if stop_detect == 0:
-            frame, aksi_sesudah = process_frame(frame, start_x, start_y, end_x, end_y, width, height, stop_detect)
+            frame, aksi_sesudah = process_frame(frame, start_x, start_y, end_x, end_y, stop_detect)
 
             if aksi_sebelum != aksi_sesudah:
                 if(aksi_sesudah == 'STOP'):
@@ -182,6 +188,7 @@ def main_loop(cap, width, height):
 
 # Fungsi utama
 def main():
+    global width, height
     cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
     # cap = cv2.VideoCapture(-1)
     time.sleep(2.0)
@@ -189,11 +196,7 @@ def main():
     frame = capture_frame(cap)
     height, width, _ = frame.shape
 
-    global box_size, stop_detect
-    stop_detect = 0
-    box_size = 100
-
-    main_loop(cap, width, height)
+    main_loop(cap)
 
     cv2.destroyAllWindows()
     cap.release()
