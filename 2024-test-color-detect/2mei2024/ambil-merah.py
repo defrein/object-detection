@@ -4,6 +4,7 @@ from collections import deque
 import imutils
 import argparse
 import time
+import serial
 
 # maju cepat = F
 # maju sedang = n
@@ -39,7 +40,7 @@ ROTASI_KANAN_LAMBAT = 'r'
 ROTASI_KIRI_CEPAT = 'L'
 ROTASI_KIRI_LAMBAT = 'l'
 
-STOP = 'S'
+STOP = 's'
 
 PENGGIRING_START = 'p'
 PENGGIRING_STOP = 'P'
@@ -53,17 +54,32 @@ box_size = 100
 def detect_color_target(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # Adaptive thresholding
-    _, thresh_red1 = cv2.threshold(hsv[:, :, 2], 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    _, thresh_red2 = cv2.threshold(hsv[:, :, 2], 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    _, thresh_blue = cv2.threshold(hsv[:, :, 2], 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # # Adaptive thresholding
+    # _, thresh_red1 = cv2.threshold(hsv[:, :, 2], 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # _, thresh_red2 = cv2.threshold(hsv[:, :, 2], 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # _, thresh_blue = cv2.threshold(hsv[:, :, 2], 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    # Apply the thresholding to the HSV ranges
-    mask_red1 = cv2.bitwise_and(thresh_red1, thresh_red1, mask=cv2.inRange(hsv, colorLowerRed, colorUpperRed))
-    mask_red2 = cv2.bitwise_and(thresh_red2, thresh_red2, mask=cv2.inRange(hsv, colorLowerRed2, colorUpperRed2))
+    # # Apply the thresholding to the HSV ranges
+    # mask_red1 = cv2.bitwise_and(thresh_red1, thresh_red1, mask=cv2.inRange(hsv, colorLowerRed, colorUpperRed))
+    # mask_red2 = cv2.bitwise_and(thresh_red2, thresh_red2, mask=cv2.inRange(hsv, colorLowerRed2, colorUpperRed2))
+    # mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+
+    # mask_blue = cv2.bitwise_and(thresh_blue, thresh_blue, mask=cv2.inRange(hsv, colorLowerBlue, colorUpperBlue))
+
+    # Deteksi warna merah
+    mask_red1 = cv2.inRange(hsv, colorLowerRed, colorUpperRed)
+    mask_red2 = cv2.inRange(hsv, colorLowerRed2, colorUpperRed2)
     mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+    # mask_red = cv2.erode(mask_red, None, iterations=2)
+    # mask_red = cv2.dilate(mask_red, None, iterations=2)
+    mask_red = cv2.morphologyEx(mask_red, cv2.MORPH_OPEN, kernel=np.ones((3, 3), np.uint8))
+    mask_red = cv2.morphologyEx(mask_red, cv2.MORPH_CLOSE, kernel=np.ones((10, 10), np.uint8))
+    mask_red = cv2.dilate(mask_red, kernel=np.ones((15, 15), np.uint8))
 
-    mask_blue = cv2.bitwise_and(thresh_blue, thresh_blue, mask=cv2.inRange(hsv, colorLowerBlue, colorUpperBlue))
+    # Deteksi warna biru
+    mask_blue = cv2.inRange(hsv, colorLowerBlue, colorUpperBlue)
+    mask_blue = cv2.erode(mask_blue, None, iterations=2)
+    mask_blue = cv2.dilate(mask_blue, None, iterations=2)
 
     # Find contours
     cnts_red = cv2.findContours(mask_red.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -76,7 +92,8 @@ def detect_color_target(frame):
     detected_coordinates = []
     color_type = []
 
-    for cnts, color in [(cnts_red, "Merah"), (cnts_blue, "Biru")]:
+    # for cnts, color in [(cnts_red, "Merah"), (cnts_blue, "Biru")]:
+    for cnts, color in [(cnts_red, "Merah")]:
         for c in cnts:
             ((x, y), radius) = cv2.minEnclosingCircle(c)
             if radius > 10:
@@ -107,6 +124,8 @@ def draw_rectangle(frame, start_x, start_y, end_x, end_y):
     return frame
 
 def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
+    global status
+    status = ''
     frame = draw_rectangle(frame, start_x, start_y, end_x, end_y)
     aksi = ''
     if stop_detect == 0:
@@ -125,21 +144,24 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
                         aksi = "ROTASI_KIRI"
                         print("Objek berada di sisi kiri kotak")
                     elif coord[0] > start_x and coord[1] > height - box_size:
-                        aksi = "STOP"
+                        # aksi = "STOP"
+                        status = "DAPAT_MERAH"
                         print("Objek berada di dalam kotak")
                         print("MERAH: AMBIL")
                         break
                     else:
                         print("Cari Objek")
                         aksi = "CARI_OBJEK"
+                        status = "MENCARI"
                 elif color == "Biru" and coord[0] > start_x and coord[1] > height - box_size:
-                    aksi = "STOP"
+                    # aksi = "STOP"
+                    status = "DAPAT_BIRU"
                     print("Objek berada di dalam kotak")
                     print("BIRU: BUANG")
                     break
                 else:
                     continue
-    return frame, aksi
+    return frame, aksi, status
 
 def send_to_arduino(aksi):
     commands = {
@@ -148,6 +170,7 @@ def send_to_arduino(aksi):
         'ROTASI_KIRI': ROTASI_KIRI_CEPAT,
         'CARI_OBJEK': ROTASI_KIRI_LAMBAT,
         'STOP': STOP,
+        'MUNDUR_LAMBAT': MUNDUR_LAMBAT,
         'PENGGIRING_START': PENGGIRING_START,
         'PENGGIRING_STOP': PENGGIRING_STOP
     }
@@ -158,6 +181,8 @@ def send_to_arduino(aksi):
         print("Aksi tidak dikenali:", aksi)
 
 def main_loop(cap):
+    global status
+    status = ''
     aksi_sebelum = ''
     frame = None
     stop_detect = 0
@@ -169,14 +194,26 @@ def main_loop(cap):
         end_x = width
         end_y = height
         if stop_detect == 0:
-            frame, aksi_sesudah = process_frame(frame, start_x, start_y, end_x, end_y, stop_detect)
+            frame, aksi_sesudah, status = process_frame(frame, start_x, start_y, end_x, end_y, stop_detect)
 
             if aksi_sebelum != aksi_sesudah:
                 if(aksi_sesudah == 'STOP'):
-                    stop_detect = 1
+                    send_to_arduino(aksi_sesudah)
+                    # stop_detect = 1
+                    if(status == "DAPAT_BIRU"):
+                        send_to_arduino('PENGGIRING_START')
+                        send_to_arduino('MUNDUR_LAMBAT')
+                        time.sleep(3)
+                        stop_detect = 0
+                    if(status == "DAPAT_MERAH"):
+                        send_to_arduino('PENGGIRING_START')
+                        stop_detect = 1
                 else:
+                    send_to_arduino(aksi_sesudah)
+                    
                     stop_detect = 0
                 print('send')
+
                 print(stop_detect)
             aksi_sebelum = aksi_sesudah
         
@@ -206,20 +243,26 @@ if __name__ == "__main__":
     ap.add_argument("-v")
     args = vars(ap.parse_args())
     # ser = serial.Serial('/dev/ttyACM0', 115200)
+    ser = serial.Serial('COM7', 115200)
 
     # colorLowerRed = np.array([0, 100, 100])
-    # colorUpperRed = np.array([20, 255, 255])
+    # colorUpperRed = np.array([15, 255, 255])
     # colorLowerRed2 = np.array([120, 120, 46])
     # colorUpperRed2 = np.array([184, 255, 209])
-    colorLowerRed = np.array([0, 150, 100])
-    colorUpperRed = np.array([5, 255, 255])
-    colorLowerRed2 = np.array([160, 150, 100])
+    # colorLowerRed = np.array([0, 150, 100])
+    # colorUpperRed = np.array([5, 255, 255])
+    # colorLowerRed2 = np.array([160, 150, 100])
+    # colorUpperRed2 = np.array([180, 255, 255])
+
+    colorLowerRed = np.array([0, 200, 100])
+    colorUpperRed = np.array([10, 255, 255])
+    colorLowerRed2 = np.array([160, 200, 100])
     colorUpperRed2 = np.array([180, 255, 255])
     
-    # colorLowerRed = np.array([148, 194, 62])
+    # colorLowerRed = np.array([148, 200, 62])
     # colorUpperRed = np.array([255, 255, 255])
-    # colorLowerRed2 = np.array([0, 187, 0])
-    # colorUpperRed2 = np.array([107, 255, 255])
+    # colorLowerRed2 = np.array([0, 200, 0])
+    # colorUpperRed2 = np.array([10, 255, 255])
 
     # colorLowerRed = np.array([0, 100, 100])
     # colorUpperRed = np.array([10, 255, 255])

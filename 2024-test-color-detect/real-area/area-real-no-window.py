@@ -112,7 +112,7 @@ def main_loop(cap, width, height):
         frame, aksi_sesudah = process_frame(frame, start_x, start_y, end_x, end_y, width, height)
 
         if aksi_sebelum != aksi_sesudah:
-            # Kirim ke Arduino jika aksi sebelumnya tidak sama dengan aksi sesudahnya
+            # Kirim ke Arduino jika aksi sebelumnya tidak sama qdengan aksi sesudahnya
             send_to_arduino(aksi_sesudah)
         aksi_sebelum = aksi_sesudah  # Perbarui aksi_sebelum dengan aksi_sesudah saat ini
 

@@ -10,6 +10,7 @@
 import cv2
 import argparse
 from operator import xor
+import numpy as np
 
 
 def callback(value):
@@ -60,6 +61,7 @@ def get_trackbar_values(range_filter):
 
 
 def main():
+    dilateMorpholgy = 0
     args = get_arguments()
 
     range_filter = args['filter'].upper()
@@ -71,10 +73,16 @@ def main():
             frame_to_thresh = image.copy()
         else:
             frame_to_thresh = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+            # morpholgy = cv2.morphologyEx(frame_to_thresh, cv2.MORPH_OPEN, kernel=np.ones((3, 3), np.uint8))
+            # morpholgy = cv2.morphologyEx(morpholgy, cv2.MORPH_CLOSE, kernel=np.ones((10, 10), np.uint8))
+            dilateMorpholgy = cv2.dilate(frame_to_thresh, kernel=np.ones((15, 15), np.uint8))
     else:
         camera = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
     setup_trackbars(range_filter)
+
+    # Inisialisasi variabel thresh di luar loop while
+    thresh = None
 
     while True:
         if args['webcam']:
@@ -85,22 +93,35 @@ def main():
 
             if range_filter == 'RGB':
                 frame_to_thresh = image.copy()
-            else:
+            else: 
                 frame_to_thresh = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+            # Terapkan operasi morfologi pada gambar yang telah di-threshold
+            if thresh is not None:
+                morpholgy = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel=np.ones((3, 3), np.uint8))
+                morpholgy = cv2.morphologyEx(morpholgy, cv2.MORPH_CLOSE, kernel=np.ones((10, 10), np.uint8))
+                dilateMorpholgy = cv2.dilate(morpholgy, kernel=np.ones((15, 15), np.uint8))
 
         v1_min, v2_min, v3_min, v1_max, v2_max, v3_max = get_trackbar_values(range_filter)
 
         thresh = cv2.inRange(frame_to_thresh, (v1_min, v2_min, v3_min), (v1_max, v2_max, v3_max))
 
         if args['preview']:
-            preview = cv2.bitwise_and(image, image, mask=thresh)
-            cv2.imshow("Preview", preview)
+            if range_filter == 'HSV':
+                # Tampilkan hasil operasi morfologi bersamaan dengan gambar hasil threshold
+                preview = cv2.bitwise_and(image, image, mask=thresh)
+                preview = cv2.bitwise_and(preview, preview, mask=dilateMorpholgy)
+                cv2.imshow("Preview", np.hstack([cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR), preview]))
         else:
             cv2.imshow("Original", image)
             cv2.imshow("Thresh", thresh)
+            cv2.imshow("Morphology", dilateMorpholgy)
 
         if cv2.waitKey(1) & 0xFF is ord('q'):
             break
+
+
+
 
 
 if __name__ == '__main__':
