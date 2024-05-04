@@ -198,7 +198,7 @@ def main_loop(cap):
 
             if aksi_sebelum != aksi_sesudah:
                 if(aksi_sesudah == 'STOP'):
-                    send_to_arduino(aksi_sesudah)
+                    send_to_arduino(aksi_sesudah) 
                     # stop_detect = 1
                     if(status == "DAPAT_BIRU"):
                         send_to_arduino('PENGGIRING_START')
