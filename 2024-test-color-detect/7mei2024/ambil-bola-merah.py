@@ -25,6 +25,16 @@ STOP = 's'
 PENGGIRING_START = 'p'
 PENGGIRING_STOP = 'P'
 
+# warna
+MERAH = 'Merah'
+BIRU = 'Biru'
+
+# status
+MENCARI = 1
+DAPAT_MERAH = 2
+DAPAT_BIRU = 2
+SELESAI = 4
+
 # Global variables
 global box_size, stop_detect, width, height
 width = 0
@@ -52,6 +62,7 @@ def main_loop(cap):
     aksi_sebelum = ''
     frame = None
     stop_detect = False
+    # looping
     while True:
         frame = capture_frame(cap)
         box_size = 100
@@ -63,12 +74,14 @@ def main_loop(cap):
             frame, aksi_sesudah, status = process_frame(frame, start_x, start_y, end_x, end_y, stop_detect)
 
             if aksi_sebelum != aksi_sesudah:
-                if aksi_sesudah == 'STOP':
-                    if status == "DAPAT_BIRU":
+                if aksi_sesudah == STOP:
+                    if status == DAPAT_BIRU:
                         time.sleep(3)
                         stop_detect = False
-                    if status == "DAPAT_MERAH":
+                    if status == DAPAT_MERAH:
                         stop_detect = True
+                    
+                    # send something
                 else:
                     stop_detect = False
                 print('send')
@@ -104,24 +117,24 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
             
             for coord, color in zip(coordinates, color_type):
                 print("Koordinat: {}".format(coord))
-                if color == "Merah":
+                if color == MERAH:
                     if coord[1] < height - box_size:
-                        aksi = "MAJU"
+                        aksi = MAJU_CEPAT
                         print("Objek berada di atas")
                     elif coord[0] < width - box_size and coord[1] > height - box_size:
-                        aksi = "ROTASI_KIRI"
+                        aksi = ROTASI_KIRI_LAMBAT
                         print("Objek berada di sisi kiri kotak")
                     elif coord[0] > start_x and coord[1] > height - box_size:
-                        status = "DAPAT_MERAH"
+                        status = DAPAT_MERAH
                         print("Objek berada di dalam kotak")
                         print("MERAH: AMBIL")
                         break
                     else:
                         print("Cari Objek")
-                        aksi = "CARI_OBJEK"
-                        status = "MENCARI"
-                elif color == "Biru" and coord[0] > start_x and coord[1] > height - box_size:
-                    status = "DAPAT_BIRU"
+                        aksi = ROTASI_KIRI_LAMBAT
+                        status = MENCARI
+                elif color == BIRU and coord[0] > start_x and coord[1] > height - box_size:
+                    status = DAPAT_BIRU
                     print("Objek berada di dalam kotak")
                     print("BIRU: BUANG")
                     break
@@ -153,7 +166,7 @@ def detect_color_target(frame):
     detected_coordinates = []
     color_type = []
 
-    for cnts, color in [(cnts_red, "Merah")]:
+    for cnts, color in [(cnts_red, MERAH), (cnts_blue, BIRU)]:
         for c in cnts:
             ((x, y), radius) = cv2.minEnclosingCircle(c)
             if radius > 10:
@@ -171,20 +184,8 @@ def detect_color_target(frame):
     return color_detected, detected_coordinates, color_type
 
 def send_to_arduino(aksi):
-    commands = {
-        'MAJU': MAJU_SEDANG,
-        'ROTASI_KIRI': ROTASI_KIRI_CEPAT,
-        'CARI_OBJEK': ROTASI_KIRI_LAMBAT,
-        'STOP': STOP,
-        'MUNDUR_LAMBAT': MUNDUR_LAMBAT,
-        'PENGGIRING_START': PENGGIRING_START,
-        'PENGGIRING_STOP': PENGGIRING_STOP
-    }
-
-    if aksi in commands:
-        ser.write(commands[aksi].encode('utf-8'))
-    else:
-        print("Aksi tidak dikenali:", aksi)
+        ser.write(aksi.encode('utf-8'))
+        print("Dikirim:", aksi)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

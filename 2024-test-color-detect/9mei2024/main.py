@@ -25,6 +25,16 @@ STOP = 's'
 PENGGIRING_START = 'p'
 PENGGIRING_STOP = 'P'
 
+# warna
+MERAH = 'Merah'
+BIRU = 'Biru'
+
+# status
+MENCARI = 1
+DAPAT_MERAH = 2
+DAPAT_BIRU = 2
+SELESAI = 4
+
 # Global variables
 global box_size, stop_detect, width, height
 width = 0
@@ -52,6 +62,7 @@ def main_loop(cap):
     aksi_sebelum = ''
     frame = None
     stop_detect = False
+    # looping
     while True:
         frame = capture_frame(cap)
         box_size = 100
@@ -63,16 +74,18 @@ def main_loop(cap):
             frame, aksi_sesudah, status = process_frame(frame, start_x, start_y, end_x, end_y, stop_detect)
 
             if aksi_sebelum != aksi_sesudah:
-                if aksi_sesudah == 'STOP':
-                    if status == "DAPAT_BIRU":
+                if aksi_sesudah == STOP:
+                    if status == DAPAT_BIRU:
                         time.sleep(3)
                         stop_detect = False
-                    if status == "DAPAT_MERAH":
+                    if status == DAPAT_MERAH:
                         stop_detect = True
+                    
+                    # send something
+                    print('send')
                 else:
                     stop_detect = False
-                print('send')
-                print(stop_detect)
+                print('stop detect = ' + str(stop_detect))
             aksi_sebelum = aksi_sesudah
         
         cv2.imshow('Camera', frame)
@@ -104,24 +117,24 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
             
             for coord, color in zip(coordinates, color_type):
                 print("Koordinat: {}".format(coord))
-                if color == "Merah":
+                if color == MERAH:
                     if coord[1] < height - box_size:
-                        aksi = "MAJU"
+                        aksi = MAJU_CEPAT
                         print("Objek berada di atas")
                     elif coord[0] < width - box_size and coord[1] > height - box_size:
-                        aksi = "ROTASI_KIRI"
+                        aksi = ROTASI_KIRI_LAMBAT
                         print("Objek berada di sisi kiri kotak")
                     elif coord[0] > start_x and coord[1] > height - box_size:
-                        status = "DAPAT_MERAH"
+                        status = DAPAT_MERAH
                         print("Objek berada di dalam kotak")
                         print("MERAH: AMBIL")
                         break
                     else:
                         print("Cari Objek")
-                        aksi = "CARI_OBJEK"
-                        status = "MENCARI"
-                elif color == "Biru" and coord[0] > start_x and coord[1] > height - box_size:
-                    status = "DAPAT_BIRU"
+                        aksi = ROTASI_KIRI_LAMBAT
+                        status = MENCARI
+                elif color == BIRU and coord[0] > start_x and coord[1] > height - box_size:
+                    status = DAPAT_BIRU
                     print("Objek berada di dalam kotak")
                     print("BIRU: BUANG")
                     break
@@ -153,38 +166,36 @@ def detect_color_target(frame):
     detected_coordinates = []
     color_type = []
 
-    for cnts, color in [(cnts_red, "Merah")]:
-        for c in cnts:
-            ((x, y), radius) = cv2.minEnclosingCircle(c)
-            if radius > 10:
-                M = cv2.moments(c)
-                if M["m00"]!= 0:
-                    center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-                    detected_coordinates.append(center)
-                    color_type.append(color)
-                    cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
-                    cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
+    max_area_red = 0
+    max_contour_red = None
 
-    if detected_coordinates:
-        color_detected = True
+    for c in cnts_red:
+        area = cv2.contourArea(c)
+        if area > max_area_red:
+            max_area_red = area
+            max_contour_red = c
+
+    for c in cnts_blue:
+        # Your logic for blue contours here, if needed
+        pass
+
+    if max_contour_red is not None:
+        ((x, y), radius) = cv2.minEnclosingCircle(max_contour_red)
+        if radius > 10:
+            M = cv2.moments(max_contour_red)
+            if M["m00"] != 0:
+                center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+                detected_coordinates.append(center)
+                color_type.append(MERAH)
+                cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
+                cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
+                color_detected = True
 
     return color_detected, detected_coordinates, color_type
 
 def send_to_arduino(aksi):
-    commands = {
-        'MAJU': MAJU_SEDANG,
-        'ROTASI_KIRI': ROTASI_KIRI_CEPAT,
-        'CARI_OBJEK': ROTASI_KIRI_LAMBAT,
-        'STOP': STOP,
-        'MUNDUR_LAMBAT': MUNDUR_LAMBAT,
-        'PENGGIRING_START': PENGGIRING_START,
-        'PENGGIRING_STOP': PENGGIRING_STOP
-    }
-
-    if aksi in commands:
-        ser.write(commands[aksi].encode('utf-8'))
-    else:
-        print("Aksi tidak dikenali:", aksi)
+    ser.write(aksi.encode('utf-8'))
+    print("Dikirim:", aksi)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
