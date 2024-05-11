@@ -74,18 +74,33 @@ def main_loop(cap):
             frame, aksi_sesudah, status = process_frame(frame, start_x, start_y, end_x, end_y, stop_detect)
 
             if aksi_sebelum != aksi_sesudah:
-                if aksi_sesudah == STOP:
+                    print(status)
                     if status == DAPAT_BIRU:
-                        time.sleep(3)
+                        print('dapat biru')
+                        aksi_sesudah = PENGGIRING_START
+                        # send_to_arduino(MAJU_LAMBAT)
+                        send_to_arduino(aksi_sesudah)
+                        time.sleep(5)
+                        aksi_sesudah = PENGGIRING_STOP
+                        send_to_arduino(aksi_sesudah)
                         stop_detect = False
+                        send_to_arduino(STOP)
                     if status == DAPAT_MERAH:
+                        aksi_sesudah = PENGGIRING_START
+                        # send_to_arduino(MAJU_LAMBAT)
+                        send_to_arduino(aksi_sesudah)
+                        time.sleep(3)
                         stop_detect = True
-                    
+                        send_to_arduino(STOP)
+                        send_to_arduino(PENGGIRING_STOP)
+                        break
                     # send something
+                    if status == '' or status == MENCARI:
+                        # send_to_arduino(aksi_sesudah)
+                        pass
+                        
                     print('send')
-                else:
-                    stop_detect = False
-                print('stop detect = ' + str(stop_detect))
+                    print('stop detect = ' + str(stop_detect))
             aksi_sebelum = aksi_sesudah
         
         cv2.imshow('Camera', frame)
@@ -100,8 +115,9 @@ def capture_frame(cap):
     return frame
 
 def draw_rectangle(frame, start_x, start_y, end_x, end_y):
+    cv2.line(frame, (0, start_y), (width-box_size, start_y), (255, 255, 255), 2)
+    cv2.line(frame, (width-box_size, 0), (width-box_size, height-box_size), (255, 255, 255), 2)
     cv2.rectangle(frame, (start_x, start_y), (end_x, end_y), (0, 255, 0), 2)
-    cv2.line(frame, (0, start_y), (width, start_y), (255, 255, 255), 2)
     return frame
 
 def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
@@ -118,10 +134,16 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
             for coord, color in zip(coordinates, color_type):
                 print("Koordinat: {}".format(coord))
                 if color == MERAH:
-                    if coord[1] < height - box_size:
+                    if coord[0]< width-box_size and coord[1] < height - box_size :
+                        status = MENCARI
                         aksi = MAJU_CEPAT
                         print("Objek berada di atas")
+                    elif coord[0] > width-box_size and coord[1] < height - box_size:
+                        status = MENCARI
+                        aksi = ROTASI_KANAN_LAMBAT
+                        print("Objek berada di kanan")
                     elif coord[0] < width - box_size and coord[1] > height - box_size:
+                        status = MENCARI
                         aksi = ROTASI_KIRI_LAMBAT
                         print("Objek berada di sisi kiri kotak")
                     elif coord[0] > start_x and coord[1] > height - box_size:
@@ -131,7 +153,7 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
                         break
                     else:
                         print("Cari Objek")
-                        aksi = ROTASI_KIRI_LAMBAT
+                        aksi = MAJU_LAMBAT
                         status = MENCARI
                 elif color == BIRU and coord[0] > start_x and coord[1] > height - box_size:
                     status = DAPAT_BIRU
@@ -168,6 +190,8 @@ def detect_color_target(frame):
 
     max_area_red = 0
     max_contour_red = None
+    max_area_blue = 0
+    max_contour_red = None
 
     for c in cnts_red:
         area = cv2.contourArea(c)
@@ -177,7 +201,10 @@ def detect_color_target(frame):
 
     for c in cnts_blue:
         # Your logic for blue contours here, if needed
-        pass
+        area = cv2.contourArea(c)
+        if area > max_area_blue:
+            max_area_blue = area
+            max_contour_blue = c
 
     if max_contour_red is not None:
         ((x, y), radius) = cv2.minEnclosingCircle(max_contour_red)
@@ -187,6 +214,18 @@ def detect_color_target(frame):
                 center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
                 detected_coordinates.append(center)
                 color_type.append(MERAH)
+                cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
+                cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
+                color_detected = True
+
+    if max_contour_blue is not None:
+        ((x, y), radius) = cv2.minEnclosingCircle(max_contour_blue)
+        if radius > 10:
+            M = cv2.moments(max_contour_blue)
+            if M["m00"] != 0:
+                center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+                detected_coordinates.append(center)
+                color_type.append(BIRU)
                 cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
                 cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
                 color_detected = True
@@ -204,12 +243,12 @@ if __name__ == "__main__":
 
     # Serial communication setup
     # ser = serial.Serial('/dev/ttyACM0', 115200)
-    # ser = serial.Serial('COM7', 115200)
+    ser = serial.Serial('COM7', 115200)
 
     # Define HSV color ranges
-    colorLowerRed = np.array([0, 200, 100])
+    colorLowerRed = np.array([0, 150, 100])
     colorUpperRed = np.array([10, 255, 255])
-    colorLowerRed2 = np.array([160, 200, 100])
+    colorLowerRed2 = np.array([160, 150, 100])
     colorUpperRed2 = np.array([180, 255, 255])
 
     colorLowerBlue = np.array([102, 164, 66])
