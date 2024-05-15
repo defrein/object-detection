@@ -32,7 +32,7 @@ BIRU = 'Biru'
 # status
 MENCARI = 1
 DAPAT_MERAH = 2
-DAPAT_BIRU = 2
+DAPAT_BIRU = 3
 SELESAI = 4
 
 # Global variables
@@ -74,34 +74,31 @@ def main_loop(cap):
             frame, aksi_sesudah, status = process_frame(frame, start_x, start_y, end_x, end_y, stop_detect)
 
             if aksi_sebelum != aksi_sesudah:
-                    print(status)
-                    if status == DAPAT_BIRU:
-                        print('dapat biru')
-                        aksi_sesudah = PENGGIRING_START
-                        # send_to_arduino(MAJU_LAMBAT)
-                        send_to_arduino(aksi_sesudah)
-                        time.sleep(5)
-                        aksi_sesudah = PENGGIRING_STOP
-                        send_to_arduino(aksi_sesudah)
-                        stop_detect = False
-                        send_to_arduino(STOP)
-                    if status == DAPAT_MERAH:
-                        print('dapat merah')
-                        aksi_sesudah = PENGGIRING_START
-                        # send_to_arduino(MAJU_LAMBAT)
-                        send_to_arduino(aksi_sesudah)
-                        time.sleep(3)
-                        stop_detect = True
-                        send_to_arduino(STOP)
-                        send_to_arduino(PENGGIRING_STOP)
-                        break
-                    # send something
-                    if status == '' or status == MENCARI:
-                        # send_to_arduino(aksi_sesudah)
-                        pass
-                        
-                    print('send')
-                    print('stop detect = ' + str(stop_detect))
+                print(status)
+                print('haha')
+                if status == DAPAT_BIRU:
+                    print('Dapat biru')
+                    aksi_sesudah = PENGGIRING_START
+                    send_to_arduino(aksi_sesudah)
+                    time.sleep(3)
+                    aksi_sesudah = PENGGIRING_STOP
+                    send_to_arduino(aksi_sesudah)
+                    stop_detect = False
+                    send_to_arduino(STOP)
+                elif status == DAPAT_MERAH:
+                    print('Dapat merah')
+                    aksi_sesudah = PENGGIRING_START
+                    send_to_arduino(aksi_sesudah)
+                    time.sleep(3)
+                    stop_detect = True
+                    send_to_arduino(STOP)
+                    send_to_arduino(PENGGIRING_STOP)
+                    break
+                elif status == MENCARI:
+                    # send_to_arduino(aksi_sesudah)
+                    pass
+                print('Send')
+                print('Stop detect = ' + str(stop_detect))
             aksi_sebelum = aksi_sesudah
         
         cv2.imshow('Camera', frame)
@@ -118,6 +115,7 @@ def capture_frame(cap):
 def draw_rectangle(frame, start_x, start_y, end_x, end_y):
     cv2.line(frame, (0, start_y), (width-box_size, start_y), (255, 255, 255), 2)
     cv2.line(frame, (width-box_size, 0), (width-box_size, height-box_size), (255, 255, 255), 2)
+    cv2.line(frame, (0 + box_size, 0), (0 + box_size, height - box_size), (255, 255, 255), 2)
     cv2.rectangle(frame, (start_x, start_y), (end_x, end_y), (0, 255, 0), 2)
     return frame
 
@@ -127,19 +125,16 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
     frame = draw_rectangle(frame, start_x, start_y, end_x, end_y)
     aksi = ''
     if stop_detect == 0:
-        color_detected, coordinates, color_type = detect_color_target(frame)
+        color_detected, coordinates, color_type = detect_color_target(frame, start_x, start_y)
         if color_detected:
-            max_x = max(coord[0] for coord in coordinates)
-            max_y = max(coord[1] for coord in coordinates)
-            
             for coord, color in zip(coordinates, color_type):
                 print("Koordinat: {}".format(coord))
                 if color == MERAH:
-                    if coord[0]< width-box_size and coord[1] < height - box_size :
+                    if coord[0] < width - box_size and coord[1] < height - box_size:
                         status = MENCARI
                         aksi = MAJU_CEPAT
                         print("Objek berada di atas")
-                    elif coord[0] > width-box_size and coord[1] < height - box_size:
+                    elif coord[0] > width - box_size and coord[1] < height - box_size:
                         status = MENCARI
                         aksi = ROTASI_KANAN_LAMBAT
                         print("Objek berada di kanan")
@@ -158,14 +153,13 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
                         status = MENCARI
                 elif color == BIRU and coord[0] > start_x and coord[1] > height - box_size:
                     status = DAPAT_BIRU
+                    aksi = MAJU_LAMBAT
                     print("Objek berada di dalam kotak")
                     print("BIRU: BUANG")
                     break
-                else:
-                    continue
     return frame, aksi, status
 
-def detect_color_target(frame):
+def detect_color_target(frame, start_x, start_y):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     mask_red1 = cv2.inRange(hsv, colorLowerRed, colorUpperRed)
@@ -201,7 +195,6 @@ def detect_color_target(frame):
             max_contour_red = c
 
     for c in cnts_blue:
-        # Your logic for blue contours here, if needed
         area = cv2.contourArea(c)
         if area > max_area_blue:
             max_area_blue = area
@@ -225,11 +218,12 @@ def detect_color_target(frame):
             M = cv2.moments(max_contour_blue)
             if M["m00"] != 0:
                 center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-                detected_coordinates.append(center)
-                color_type.append(BIRU)
-                cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
-                cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
-                color_detected = True
+                if center[0] > start_x and center[1] > height - box_size:
+                    detected_coordinates.append(center)
+                    color_type.append(BIRU)
+                    cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
+                    cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
+                    color_detected = True
 
     return color_detected, detected_coordinates, color_type
 
