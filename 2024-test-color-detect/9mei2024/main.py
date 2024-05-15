@@ -86,6 +86,7 @@ def main_loop(cap):
                         stop_detect = False
                         send_to_arduino(STOP)
                     if status == DAPAT_MERAH:
+                        print('dapat merah')
                         aksi_sesudah = PENGGIRING_START
                         # send_to_arduino(MAJU_LAMBAT)
                         send_to_arduino(aksi_sesudah)
@@ -191,7 +192,7 @@ def detect_color_target(frame):
     max_area_red = 0
     max_contour_red = None
     max_area_blue = 0
-    max_contour_red = None
+    max_contour_blue = None
 
     for c in cnts_red:
         area = cv2.contourArea(c)
