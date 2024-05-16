@@ -124,11 +124,9 @@ def main_loop(cap):
                     stop_detect = True
                     sensor_atas = 1
 
-                print('Send')
-                print('Stop detect = ' + str(stop_detect))
-
-
-            aksi_sebelum = aksi_sesudah
+                # print('Send')
+                # print('Stop detect = ' + str(stop_detect))
+                aksi_sebelum = aksi_sesudah
 
         cv2.imshow('Camera', frame)
         key = cv2.waitKey(1) & 0xFF
@@ -173,6 +171,7 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
                         print("Objek berada di sisi kiri kotak")
                     elif coord[0] > start_x and coord[1] > height - box_size:
                         status = DAPAT_MERAH
+                        aksi = MAJU_LAMBAT
                         print("Objek berada di dalam kotak")
                         print("MERAH: AMBIL")
                         break
