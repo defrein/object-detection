@@ -11,7 +11,7 @@ MAJU_SEDANG = 'n'
 MAJU_LAMBAT = 'l'
 
 MUNDUR_CEPAT = 'B'
-MUNDUR_SEDANG = 'n'
+MUNDUR_SEDANG = 'N'
 MUNDUR_LAMBAT = 'b'
 
 ROTASI_KANAN_CEPAT = 'R'
@@ -89,10 +89,12 @@ def main_loop(cap):
                 print("Sensor atas terdeteksi!")
                 if warna == BIRU:
                     print('hahahahhabiru')
+                    sensor_atas = 1
                     pass
                 if warna == MERAH:
                     print('hahahahha')
                     send_to_arduino(PENGGIRING_STOP)
+                    send_to_arduino(STOP)
                     stop_detect = True
                 sensor_atas = 1
 
@@ -127,9 +129,9 @@ def main_loop(cap):
                     # send_to_arduino(STOP)
                     # send_to_arduino(PENGGIRING_STOP)
                     
-                # elif status == MENCARI:
-                #     # send_to_arduino(aksi_sesudah)
-                #     pass
+                elif status == MENCARI:
+                    send_to_arduino(aksi_sesudah)
+                    pass
                 # print('Send')
                 # print('Stop detect = ' + str(stop_detect))
             aksi_sebelum = aksi_sesudah
@@ -169,7 +171,7 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
                 if color == MERAH:
                     if coord[0] < width - box_size and coord[1] < height - box_size:
                         status = MENCARI
-                        aksi = MAJU_CEPAT
+                        aksi = MAJU_SEDANG
                         # print("Objek berada di atas")
                     elif coord[0] > width - box_size and coord[1] < height - box_size:
                         status = MENCARI
