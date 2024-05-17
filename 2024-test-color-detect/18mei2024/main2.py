@@ -77,6 +77,7 @@ def main_loop(cap):
     receiver_thread = threading.Thread(target=receive_from_arduino, daemon=True)
     receiver_thread.start()
     # looping
+
     while True:
         frame = capture_frame(cap)
         box_size = 100
@@ -90,9 +91,7 @@ def main_loop(cap):
 
             if sensor_atas == 0:
                 stop_detect = False
-                print("Sensor atas terdeteksi!")
                 if warna == BIRU:
-                    print('hahahahhabiru')
                     sensor_atas = 1
                     pass
                 elif warna == MERAH:
@@ -155,18 +154,22 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
             for coord, color in zip(coordinates, color_type):
                 # print("Koordinat: {}".format(coord))
                 if color == MERAH:
-                    if coord[0] < width - box_size and coord[1] < height - box_size:
+                    if coord[0] > box_size and coord[0] < width - box_size and coord[1] < height - box_size:
                         status = MENCARI
                         aksi = MAJU_SEDANG
-                        # print("Objek berada di atas")
+                        print("Objek berada di atas")
+                    elif coord[0] < box_size and coord[1] < height - box_size:
+                        status = MENCARI
+                        aksi = ROTASI_KIRI_LAMBAT
+                        print('KIRI')
                     elif coord[0] > width - box_size and coord[1] < height - box_size:
                         status = MENCARI
                         aksi = ROTASI_KANAN_LAMBAT
-                        # print("Objek berada di kanan")
+                        print("Objek berada di kanan")
                     elif coord[0] < width - box_size and coord[1] > height - box_size:
                         status = MENCARI
                         aksi = ROTASI_KIRI_LAMBAT
-                        # print("Objek berada di sisi kiri kotak")
+                        print("Objek berada di sisi kiri kotak")
                     elif coord[0] > start_x and coord[1] > height - box_size:
                         status = DAPAT_MERAH
                         aksi = PENGGIRING_START
@@ -266,6 +269,8 @@ def receive_from_arduino():
             print(f"Data dari Arduino: {data}")
             if data == INFRARED:
                 sensor_atas = 0
+            if data == MULAI_DETECT:
+                stop_detect = False
             
 
 if __name__ == "__main__":
@@ -273,13 +278,20 @@ if __name__ == "__main__":
     # ser = serial.Serial('/dev/ttyACM0', 115200)
     ser = serial.Serial('COM7', 115200)
 
-    # Define HSV color ranges
+    # red
     colorLowerRed = np.array([0, 150, 100])
     colorUpperRed = np.array([10, 255, 255])
     colorLowerRed2 = np.array([160, 150, 100])
     colorUpperRed2 = np.array([180, 255, 255])
 
-    colorLowerBlue = np.array([102, 164, 66])
-    colorUpperBlue = np.array([166, 255, 137])
+    # blue
+    # colorLowerBlue = np.array([102, 164, 66])
+    # colorUpperBlue = np.array([166, 255, 137])
+
+    # ungu
+    # colorLowerBlue = np.array([121, 64, 107])
+    # colorUpperBlue = np.array([160, 255, 255])
+    colorLowerBlue = np.array([95, 78, 53])
+    colorUpperBlue = np.array([127, 255, 255])
 
     main()
