@@ -44,12 +44,12 @@ SELESAI = 4
 
 
 # Global variables
-global box_size, stop_detect, width, height, sensor_atas
+global box_size, stop_detect, width, height, sensor_atas, dilateMorphBlue
 width = 0
 height = 0
 stop_detect = False
 box_size = 100
-
+dilateMorphBlue = None
 def main():
     global width, height
     cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
@@ -85,7 +85,7 @@ def main_loop(cap):
         end_x = width
         end_y = height
         if not stop_detect:
-            frame, aksi_sesudah, status = process_frame(frame, start_x, start_y, end_x, end_y, stop_detect)
+            frame, aksi_sesudah, status, dilateMorphBlue = process_frame(frame, start_x, start_y, end_x, end_y, stop_detect)
             print('status ' + str(status))
 
             if sensor_atas == 0:
@@ -127,6 +127,7 @@ def main_loop(cap):
             aksi_sebelum = aksi_sesudah
 
         cv2.imshow('Camera', frame)
+        # cv2.imshow('Blue', dilateMorphBlue)
         key = cv2.waitKey(1) & 0xFF
 
         if key == ord('q'):
@@ -150,7 +151,7 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
     frame = draw_rectangle(frame, start_x, start_y, end_x, end_y)
     aksi = ''
     if stop_detect == 0:
-        color_detected, coordinates, color_type = detect_color_target(frame, start_x, start_y)
+        color_detected, coordinates, color_type, dilateMorphBlue = detect_color_target(frame, start_x, start_y)
         if color_detected:
             for coord, color in zip(coordinates, color_type):
                 # print("Koordinat: {}".format(coord))
@@ -187,7 +188,7 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
                     # print("Objek berada di dalam kotak")
                     print("BIRU: BUANG")
                     break
-    return frame, aksi, status
+    return frame, aksi, status, dilateMorphBlue
 
 def detect_color_target(frame, start_x, start_y):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -200,15 +201,14 @@ def detect_color_target(frame, start_x, start_y):
     mask_red = cv2.dilate(mask_red, kernel=np.ones((15, 15), np.uint8))
 
     mask_blue = cv2.inRange(hsv, colorLowerBlue, colorUpperBlue)
-    # mask_blue = cv2.erode(mask_blue, None, iterations=2)
     mask_blue = cv2.morphologyEx(mask_blue, cv2.MORPH_OPEN, kernel=np.ones((3, 3), np.uint8))
     mask_blue = cv2.morphologyEx(mask_blue, cv2.MORPH_CLOSE, kernel=np.ones((10, 10), np.uint8))
-    mask_blue = cv2.dilate(mask_blue, kernel=np.ones((15, 15), np.uint8))
+    dilateMorphBlue = cv2.dilate(mask_blue, kernel=np.ones((15, 15), np.uint8))
 
     cnts_red = cv2.findContours(mask_red.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts_red = imutils.grab_contours(cnts_red)
 
-    cnts_blue = cv2.findContours(mask_blue.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts_blue = cv2.findContours(dilateMorphBlue.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts_blue = imutils.grab_contours(cnts_blue)
 
     color_detected = False
@@ -225,12 +225,26 @@ def detect_color_target(frame, start_x, start_y):
         if area > max_area_red:
             max_area_red = area
             max_contour_red = c
-
+            # print(max_contour_red)
+    
     for c in cnts_blue:
         area = cv2.contourArea(c)
-        if area > max_area_blue:
-            max_area_blue = area
-            max_contour_blue = c
+        ((x, y), radius) = cv2.minEnclosingCircle(c)
+        if radius > 10:
+            M = cv2.moments(c)
+            if M["m00"] != 0:
+                center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+                if center[0] > start_x and center[1] > height - box_size:
+                    if area > max_area_blue:
+                        max_area_blue = area
+                        max_contour_blue = c
+
+    # for c in cnts_blue:
+    #     area = cv2.contourArea(c)
+    #     if area > max_area_blue:
+    #         max_area_blue = area
+    #         max_contour_blue = c
+    #         # print(max_contour_blue)
 
     if max_contour_red is not None:
         ((x, y), radius) = cv2.minEnclosingCircle(max_contour_red)
@@ -243,11 +257,37 @@ def detect_color_target(frame, start_x, start_y):
                 cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
                 cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
                 color_detected = True
-
+    
     if max_contour_blue is not None:
         ((x, y), radius) = cv2.minEnclosingCircle(max_contour_blue)
         if radius > 10:
             M = cv2.moments(max_contour_blue)
+            if M["m00"] != 0:
+                center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+                detected_coordinates.append(center)
+                color_type.append(BIRU)
+                cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
+                cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
+                color_detected = True
+
+    # if max_contour_blue is not None:
+    #     ((x, y), radius) = cv2.minEnclosingCircle(max_contour_blue)
+    #     if radius > 10:
+    #         M = cv2.moments(max_contour_blue)
+    #         if M["m00"] != 0:
+    #             center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+    #             if center[0] > start_x and center[1] > height - box_size:
+    #                 detected_coordinates.append(center)
+    #                 color_type.append(BIRU)
+    #                 cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
+    #                 cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
+    #                 color_detected = True
+    #         # print(color_detected)
+    for c in cnts_blue:
+        area = cv2.contourArea(c)
+        ((x, y), radius) = cv2.minEnclosingCircle(c)
+        if radius > 30:
+            M = cv2.moments(c)
             if M["m00"] != 0:
                 center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
                 if center[0] > start_x and center[1] > height - box_size:
@@ -257,7 +297,7 @@ def detect_color_target(frame, start_x, start_y):
                     cv2.circle(frame, (center[0], center[1]), 5, (0, 0, 255), -1)
                     color_detected = True
 
-    return color_detected, detected_coordinates, color_type
+    return color_detected, detected_coordinates, color_type, dilateMorphBlue
 
 def send_to_arduino(aksi):
     ser.write(aksi.encode('utf-8'))
@@ -273,6 +313,7 @@ def receive_from_arduino():
             if data == INFRARED:
                 sensor_atas = 0
             
+            
 
 if __name__ == "__main__":
     # Serial communication setup
@@ -286,18 +327,18 @@ if __name__ == "__main__":
     colorUpperRed2 = np.array([180, 255, 255])
 
     # blue
-    colorLowerBlue = np.array([102, 164, 66])
-    colorUpperBlue = np.array([166, 255, 137])
+    # colorLowerBlue = np.array([102, 164, 66])
+    # colorUpperBlue = np.array([166, 255, 137])
 
     # ungu
-    colorLowerBlue = np.array([121, 64, 107])
-    colorUpperBlue = np.array([160, 255, 255])
+    # colorLowerBlue = np.array([121, 64, 107])
+    # colorUpperBlue = np.array([160, 255, 255])
     # colorLowerBlue = np.array([95, 78, 53])
     # colorUpperBlue = np.array([127, 255, 255])
 
     # ungu malam dekat
-    # colorLowerBlue = np.array([120, 50, 50])
-    # colorUpperBlue = np.array([160, 255, 255])
+    colorLowerBlue = np.array([120, 50, 50])
+    colorUpperBlue = np.array([135, 255, 255])
     # colorLowerBlue = np.array([120, 0, 0])
     # colorUpperBlue = np.array([160, 255, 255])
 
