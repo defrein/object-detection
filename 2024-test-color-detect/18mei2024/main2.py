@@ -36,11 +36,12 @@ MERAH = 'Merah'
 BIRU = 'Biru'
 
 # status
+
 MENCARI = 1
 DAPAT_MERAH = 2
 DAPAT_BIRU = 3
 SELESAI = 4
-
+TIDAK_ADA = 5
 
 
 # Global variables
@@ -178,8 +179,17 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
                         break
                     else:
                         print("Cari Objek")
-                        aksi = MAJU_LAMBAT
-                        status = MENCARI
+                        # aksi = MAJU_LAMBAT
+                        status = TIDAK_ADA
+                        while status == TIDAK_ADA:
+                            send_to_arduino(MUNDUR_LAMBAT)
+                            time.sleep(2)
+                        
+                        # send_to_arduino(ROTASI_KIRI_LAMBAT)
+                        # time.sleep(2)
+                        # send_to_arduino(ROTASI_KANAN_LAMBAT)
+                        # time.sleep(2)
+                        # status = MENCARI
                 elif color == BIRU and coord[0] > start_x and coord[1] > height - box_size:
                     status = DAPAT_BIRU
                     aksi = PENGGIRING_START

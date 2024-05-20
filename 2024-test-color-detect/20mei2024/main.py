@@ -40,6 +40,8 @@ MENCARI = 1
 DAPAT_MERAH = 2
 DAPAT_BIRU = 3
 SELESAI = 4
+TIDAK_ADA = 5
+
 
 
 
@@ -180,12 +182,12 @@ def process_frame(frame, start_x, start_y, end_x, end_y, stop_detect):
                         break
                     else:
                         print("Cari Objek")
-                        aksi = MAJU_LAMBAT
-                        status = MENCARI
+                        status = TIDAK_ADA
+                        send_to_arduino(MUNDUR_LAMBAT)
+                        time.sleep(1)
                 elif color == BIRU and coord[0] > start_x and coord[1] > height - box_size:
                     status = DAPAT_BIRU
                     aksi = PENGGIRING_START
-                    # print("Objek berada di dalam kotak")
                     print("BIRU: BUANG")
                     break
     return frame, aksi, status, dilateMorphBlue
@@ -292,6 +294,8 @@ def receive_from_arduino():
             print(f"Data dari Arduino: {data}")
             if data == INFRARED:
                 sensor_atas = 0
+            if data == MULAI_DETECT:
+                stop_detect = False
             
             
 
