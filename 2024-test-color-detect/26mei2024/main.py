@@ -54,8 +54,9 @@ box_size = 100
 dilateMorphBlue = None
 def main():
     global width, height
-    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-    # cap = cv2.VideoCapture(-1)
+    # cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(-1)
+    # cap = cv2.VideoCapture(0)
     time.sleep(2.0)
 
     frame = capture_frame(cap)
@@ -72,7 +73,7 @@ def main_loop(cap):
     status = MENCARI
     aksi_sebelum = ''
     frame = None
-    stop_detect = False
+    stop_detect = True
     warna = ''
 
     # Create and start the receiver thread
@@ -99,10 +100,12 @@ def main_loop(cap):
                     pass
                 elif warna == MERAH:
                     # print('hahahahha')
-                    send_to_arduino(PENGGIRING_STOP)
+                    send_to_arduino(MUNDUR_LAMBAT)
                     send_to_arduino(STOP)
+                    time.sleep(1.5)
+                    send_to_arduino(PENGGIRING_STOP)
                     send_to_arduino(SELESAI_DETECT)
-                    stop_detect = True
+                    stop_detect = False
                 sensor_atas = 1
 
             if aksi_sebelum != aksi_sesudah:
@@ -119,9 +122,10 @@ def main_loop(cap):
                     send_to_arduino(aksi_sesudah)
                     warna = MERAH
                     if sensor_atas == 0:
-                        print('kedetek bola')
-                        send_to_arduino(PENGGIRING_STOP)
+                        send_to_arduino(MUNDUR_LAMBAT)
                         send_to_arduino(STOP)
+                        time.sleep(1.5)
+                        send_to_arduino(PENGGIRING_STOP)
                         send_to_arduino(SELESAI_DETECT)
                         stop_detect = False
                         
@@ -131,7 +135,7 @@ def main_loop(cap):
                     pass
             aksi_sebelum = aksi_sesudah
 
-        cv2.imshow('Camera', frame)
+        # cv2.imshow('Camera', frame)
         # cv2.imshow('Blue', dilateMorphBlue)
         key = cv2.waitKey(1) & 0xFF
 
@@ -299,13 +303,15 @@ def receive_from_arduino():
                 sensor_atas = 0
             if data == MULAI_DETECT:
                 stop_detect = False
+            if data == "RESET":
+                stop_detect = True
             
             
 
 if __name__ == "__main__":
     # Serial communication setup
-    # ser = serial.Serial('/dev/ttyACM0', 115200)
-    ser = serial.Serial('COM7', 115200)
+    ser = serial.Serial('/dev/ttyACM0', 115200)
+    # ser = serial.Serial('COM7', 115200)
 
     # red
     colorLowerRed = np.array([0, 150, 100])
