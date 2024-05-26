@@ -49,7 +49,7 @@ TIDAK_ADA = 5
 global box_size, stop_detect, width, height, sensor_atas, dilateMorphBlue
 width = 0
 height = 0
-stop_detect = False
+stop_detect = True
 box_size = 100
 dilateMorphBlue = None
 def main():
@@ -72,7 +72,7 @@ def main_loop(cap):
     status = MENCARI
     aksi_sebelum = ''
     frame = None
-    stop_detect = True
+    stop_detect = False
     warna = ''
 
     # Create and start the receiver thread
@@ -119,9 +119,12 @@ def main_loop(cap):
                     send_to_arduino(aksi_sesudah)
                     warna = MERAH
                     if sensor_atas == 0:
-                        send_to_arduino(PENGGIRING_STOP)
-                        stop_detect = False
                         print('kedetek bola')
+                        send_to_arduino(PENGGIRING_STOP)
+                        send_to_arduino(STOP)
+                        send_to_arduino(SELESAI_DETECT)
+                        stop_detect = False
+                        
                     
                 elif status == MENCARI:
                     send_to_arduino(aksi_sesudah)
