@@ -67,12 +67,12 @@ def main():
     cap.release()
 
 def main_loop(cap):
-    global status, sensor_atas
+    global status, sensor_atas, stop_detect
     sensor_atas = '1'
     status = MENCARI
     aksi_sebelum = ''
     frame = None
-    stop_detect = False
+    stop_detect = True
     warna = ''
 
     # Create and start the receiver thread
@@ -94,11 +94,11 @@ def main_loop(cap):
                 stop_detect = False
                 print("Sensor atas terdeteksi!")
                 if warna == BIRU:
-                    print('hahahahhabiru')
+                    # print('hahahahhabiru')
                     sensor_atas = 1
                     pass
                 elif warna == MERAH:
-                    print('hahahahha')
+                    # print('hahahahha')
                     send_to_arduino(PENGGIRING_STOP)
                     send_to_arduino(STOP)
                     send_to_arduino(SELESAI_DETECT)
@@ -286,7 +286,7 @@ def send_to_arduino(aksi):
     print("Dikirim:", aksi)
 
 def receive_from_arduino():
-    global sensor_atas
+    global sensor_atas, stop_detect
     sensor_atas = ''
     while True:
         if ser.in_waiting > 0:
