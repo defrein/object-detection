@@ -58,8 +58,16 @@ def capture_frame(cap):
     return frame
 
 def draw_rectangle(frame, start_x, start_y, end_x, end_y, width, height):
-    cv2.rectangle(frame, (start_x, start_y), (end_x, end_y), (0, 255, 0), 2)
-    cv2.line(frame, (0, start_y), (width, start_y), (255, 255, 255), 2)
+
+    box_size = 100
+    # cv2.line(frame, (0, height//2), (width, height//2), (255, 255, 255), 2)
+    # cv2.line(frame, (width//2, 0), (width//2, height), (255, 255, 255), 2)
+    cv2.line(frame, (width//2 - box_size//2, 0), (width//2 - box_size//2, height), (255, 0, 0), 2)
+    cv2.line(frame, (width//2 + box_size//2, 0), (width//2 + box_size//2, height), (255, 0, 0), 2)
+    cv2.line(frame, (0, height - box_size), (width, height - box_size), (255, 255, 0), 2)
+    cv2.rectangle(frame, (width//2 - box_size//2, height - box_size), (width//2 + box_size//2, height), (0, 255, 0), 2)
+
+
     return frame
 
 
